@@ -9,7 +9,7 @@ const app = express();
 
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: "https://order-to-cash-graph.vercel.app",
   })
 );
 app.use(express.json());

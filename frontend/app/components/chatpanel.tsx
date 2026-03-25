@@ -22,7 +22,7 @@ export default function ChatPanel({ setHighlightIdsAction }: ChatPanelProps) {
     const userMessage: Message = { role: "user", text: input };
     setMessages((prev) => [...prev, userMessage]);
 
-    const res = await fetch("http://localhost:5000/query", {
+    const res = await fetch("https://order-to-cash-graph-u5wv.onrender.com", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
