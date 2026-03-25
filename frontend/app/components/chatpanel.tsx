@@ -38,9 +38,11 @@ export default function ChatPanel({ setHighlightIdsAction }: ChatPanelProps) {
       data = { answer: await res.text().catch(() => "Request failed"), ids: [] };
     }
 
-    setHighlightIdsAction(
-      (data.ids ?? []).map((id: string | number) => String(id))
-    );
+    if (data.ids && data.ids.length > 0) {
+      setHighlightIdsAction(data.ids.map((id: string | number) => String(id)));
+    } else {
+      setHighlightIdsAction([]);
+    }
 
     const aiMessage: Message = {
       role: "ai",
@@ -56,7 +58,8 @@ export default function ChatPanel({ setHighlightIdsAction }: ChatPanelProps) {
       ]);
       return;
     }
-
+    console.log("API_RESPONSE", data);
+    console.log("IDS_FROM_BACKEDN", data.ids);
     setMessages((prev) => [...prev, aiMessage]);
     setInput("");
   };
