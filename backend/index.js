@@ -8,9 +8,7 @@ const { generateSQL, generateAnswer } = require("./llm");
 const app = express();
 
 app.use(
-  cors({
-    origin: "https://order-to-cash-graph.vercel.app",
-  })
+  cors()
 );
 app.use(express.json());
 
@@ -191,6 +189,6 @@ app.post("/query", async (req, res) => {
   }
 });
 
-app.listen(5000, () => {
-  console.log("Server running on port 5000");
+app.listen(process.env.PORT || 5000, () => {
+  console.log("Server running");
 });

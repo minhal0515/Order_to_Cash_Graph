@@ -28,7 +28,7 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
   useEffect(() => {
     let alive = true;
 
-    fetch("https://order-to-cash-graph-u5wv.onrender.com")
+    fetch("https://order-to-cash-graph-u5wv.onrender.com/graph")
       .then(async (res) => {
         if (!res.ok) {
           const text = await res.text().catch(() => "");
