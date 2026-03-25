@@ -30,18 +30,30 @@ export default function ChatPanel({ setHighlightIdsAction }: ChatPanelProps) {
       body: JSON.stringify({ question: input }),
     });
 
-    const data = await res.json();
-    setHighlightIdsAction((data.ids ?? []).map((id: string | number) => String(id)));
+    let data: any = null;
+    try {
+      data = await res.json();
+    } catch {
+      // Backend may return plain text on error; keep UI usable.
+      data = { answer: await res.text().catch(() => "Request failed"), ids: [] };
+    }
+
+    setHighlightIdsAction(
+      (data.ids ?? []).map((id: string | number) => String(id))
+    );
 
     const aiMessage: Message = {
       role: "ai",
       text: data.answer,
     };
     if (!res.ok) {
-      setMessages(prev => [...prev, {
-        role: "ai",
-        text: "I generated an invalid query. Please try rephrasing."
-      }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "ai",
+          text: "I generated an invalid query. Please try rephrasing.",
+        },
+      ]);
       return;
     }
 

@@ -21,15 +21,34 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let alive = true;
+
     fetch("http://localhost:5000/graph")
-      .then(res => res.json())
-      .then(setData);
+      .then(async (res) => {
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          throw new Error(`Graph fetch failed (${res.status}): ${text}`);
+        }
+        return res.json();
+      })
+      .then((json) => {
+        if (!alive) return;
+        setData(json);
+      })
+      .catch((err) => {
+        // Don't crash the whole page if backend returns an error.
+        console.error(err);
+      });
+
+    return () => {
+      alive = false;
+    };
   }, []);
 
   return (
     <div
       ref={containerRef}
-      style={{ width: "100%", height: "100%" }}
+      style={{ width: "100%", height: "100%", position: "relative", zIndex: 0 }}
     >
       {containerRef.current && (
         <ForceGraph2D
@@ -40,7 +59,7 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
           nodeColor={(node: any) => {
             const rawId = String(node.id ?? "").replace("invoice_", "");
         
-            if (!highlightIds.length) return "#999999";
+            if (!highlightIds.length) return "#3b82f6";
         
             if (highlightIds.includes(rawId)) {
               return "#ef4444";

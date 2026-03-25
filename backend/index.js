@@ -1,119 +1,132 @@
 // backend/index.js
 require("dotenv").config();
 const express = require("express");
-const app = express();
 const cors = require("cors");
-app.use(cors({
-  origin: "http://localhost:3000",
-}));
-app.use(express.json());
 const pool = require("./db");
+const { generateSQL, generateAnswer } = require("./llm");
+
+const app = express();
+
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+  })
+);
+app.use(express.json());
 
 app.get("/graph", async (req, res) => {
   try {
     const nodes = [];
     const links = [];
-    const nodeSet = new Set(); // 🔥 track existing nodes
+    const nodeSet = new Set();
+    const linkSet = new Set();
 
-    // 1. Customers
+    const addNode = (id, label, type) => {
+      if (!id || nodeSet.has(id)) {
+        return;
+      }
+
+      nodes.push({ id, label, type });
+      nodeSet.add(id);
+    };
+
+    const addLink = (source, target, type) => {
+      if (!source || !target || !nodeSet.has(source) || !nodeSet.has(target)) {
+        return;
+      }
+
+      const key = `${source}|${target}|${type}`;
+      if (linkSet.has(key)) {
+        return;
+      }
+
+      links.push({ source, target, type });
+      linkSet.add(key);
+    };
+
     const customers = await pool.query("SELECT id, name FROM customers");
-    customers.rows.forEach(c => {
-      const nodeId = `customer_${c.id}`;
-
-      nodes.push({
-        id: nodeId,
-        label: c.name,
-        type: "customer"
-      });
-
-      nodeSet.add(nodeId);
+    customers.rows.forEach((customer) => {
+      addNode(
+        `customer_${customer.id}`,
+        customer.name || `Customer ${customer.id}`,
+        "customer"
+      );
     });
 
-    // 2. Orders
     const orders = await pool.query("SELECT id, customer_id FROM sales_orders");
-    orders.rows.forEach(o => {
-      const orderNode = `order_${o.id}`;
-      const customerNode = `customer_${o.customer_id}`;
-
-      nodes.push({
-        id: orderNode,
-        label: `Order ${o.id}`,
-        type: "order"
-      });
-
-      nodeSet.add(orderNode);
-
-      // 🔥 Only link if customer exists
-      if (nodeSet.has(customerNode)) {
-        links.push({
-          source: customerNode,
-          target: orderNode,
-          type: "places"
-        });
-      } else {
-        console.warn("Missing customer for order:", o.id);
-      }
+    orders.rows.forEach((order) => {
+      const orderNode = `order_${order.id}`;
+      addNode(orderNode, `Order ${order.id}`, "order");
+      addLink(`customer_${order.customer_id}`, orderNode, "places");
     });
 
-    // 3. Deliveries
     const deliveries = await pool.query("SELECT id, order_id FROM deliveries");
-    deliveries.rows.forEach(d => {
-      const deliveryNode = `delivery_${d.id}`;
-      const orderNode = `order_${d.order_id}`;
-
-      nodes.push({
-        id: deliveryNode,
-        label: `Delivery ${d.id}`,
-        type: "delivery"
-      });
-
-      nodeSet.add(deliveryNode);
-
-      // 🔥 Only link if order exists
-      if (nodeSet.has(orderNode)) {
-        links.push({
-          source: orderNode,
-          target: deliveryNode,
-          type: "fulfilled_by"
-        });
-      } else {
-        console.warn("Missing order for delivery:", d.id);
-      }
+    deliveries.rows.forEach((delivery) => {
+      const deliveryNode = `delivery_${delivery.id}`;
+      addNode(deliveryNode, `Delivery ${delivery.id}`, "delivery");
+      addLink(`order_${delivery.order_id}`, deliveryNode, "fulfilled_by");
     });
 
-    // 4. Invoices
-    const invoices = await pool.query("SELECT id, delivery_id FROM invoices");
-    invoices.rows.forEach(i => {
-      const invoiceNode = `invoice_${i.id}`;
-      const deliveryNode = `delivery_${i.delivery_id}`;
+    const invoices = await pool.query("SELECT id, delivery_id, customer_id FROM invoices");
+    invoices.rows.forEach((invoice) => {
+      const invoiceNode = `invoice_${invoice.id}`;
+      addNode(invoiceNode, `Invoice ${invoice.id}`, "invoice");
+      addLink(invoiceNode, `delivery_${invoice.delivery_id}`, "references_delivery");
+      addLink(`customer_${invoice.customer_id}`, invoiceNode, "billed_to");
+    });
 
-      nodes.push({
-        id: invoiceNode,
-        label: `Invoice ${i.id}`,
-        type: "invoice"
-      });
+    const products = await pool.query(`
+      SELECT p.id, COALESCE(pd.product_description, p.name, p.id) AS label
+      FROM products p
+      LEFT JOIN product_descriptions pd
+        ON pd.product_id = p.id
+       AND pd.language = 'EN'
+    `);
+    products.rows.forEach((product) => {
+      addNode(`product_${product.id}`, product.label || `Product ${product.id}`, "product");
+    });
 
-      nodeSet.add(invoiceNode);
+    const plants = await pool.query("SELECT id, name FROM plants");
+    plants.rows.forEach((plant) => {
+      addNode(`plant_${plant.id}`, plant.name || `Plant ${plant.id}`, "plant");
+    });
 
-      // 🔥 CRITICAL FIX
-      if (nodeSet.has(deliveryNode)) {
-        links.push({
-          source: deliveryNode,
-          target: invoiceNode,
-          type: "billed_as"
-        });
-      } else {
-        console.warn("Missing delivery for invoice:", i.id);
-      }
+    const productPlants = await pool.query("SELECT product_id, plant_id FROM product_plants");
+    productPlants.rows.forEach((productPlant) => {
+      addLink(
+        `product_${productPlant.product_id}`,
+        `plant_${productPlant.plant_id}`,
+        "available_at"
+      );
+    });
+
+    const payments = await pool.query(
+      `SELECT company_code, fiscal_year, accounting_document, accounting_document_item, invoice_id
+       FROM payments`
+    );
+    payments.rows.forEach((payment) => {
+      const paymentNode = `payment_${payment.company_code}_${payment.fiscal_year}_${payment.accounting_document}_${payment.accounting_document_item}`;
+      addNode(paymentNode, `Payment ${payment.accounting_document}`, "payment");
+      addLink(`invoice_${payment.invoice_id}`, paymentNode, "settled_by");
+    });
+
+    const journalEntries = await pool.query(
+      `SELECT company_code, fiscal_year, accounting_document, accounting_document_item, reference_document
+       FROM journal_entries`
+    );
+    journalEntries.rows.forEach((entry) => {
+      const journalNode = `journal_entry_${entry.company_code}_${entry.fiscal_year}_${entry.accounting_document}_${entry.accounting_document_item}`;
+      addNode(journalNode, `Journal ${entry.accounting_document}`, "journal_entry");
+      addLink(`invoice_${entry.reference_document}`, journalNode, "posted_to");
     });
 
     res.json({ nodes, links });
-
   } catch (err) {
     console.error(err);
     res.status(500).send("Graph error");
   }
 });
+
 app.get("/insights/missing-deliveries", async (req, res) => {
   const result = await pool.query(`
 SELECT *
@@ -128,53 +141,56 @@ LIMIT 20;
 
   res.json(result.rows);
 });
-const { generateSQL , generateAnswer} = require("./llm");
 
 app.post("/query", async (req, res) => {
   const { question } = req.body;
+  const normalizedQuestion = String(question || "").toLowerCase();
 
-  // 🔒 Guardrails
-  if (!question.toLowerCase().includes("order") &&
-      !question.toLowerCase().includes("invoice") &&
-      !question.toLowerCase().includes("customer") &&
-      !question.toLowerCase().includes("delivery") &&
-      !question.toLowerCase().includes("deliveries")
-    ) {
+  if (
+    !normalizedQuestion.includes("order") &&
+    !normalizedQuestion.includes("invoice") &&
+    !normalizedQuestion.includes("customer") &&
+    !normalizedQuestion.includes("delivery") &&
+    !normalizedQuestion.includes("deliveries") &&
+    !normalizedQuestion.includes("payment") &&
+    !normalizedQuestion.includes("journal") &&
+    !normalizedQuestion.includes("product") &&
+    !normalizedQuestion.includes("plant")
+  ) {
     return res.json({
-      answer: "This system only supports queries related to the dataset."
+      answer: "This system only supports queries related to the dataset.",
     });
   }
 
   try {
     let sql = await generateSQL(question);
-    sql = sql
-      .replace(/```sql/g, "")
-      .replace(/```/g, "")
-      .trim();
-      if (!sql.toLowerCase().includes("select")) {
-        return res.json({
-          answer: "Invalid query generated. Please try again.",
-        });
-      }
-      const result = await pool.query(sql);
+    sql = sql.replace(/```sql/g, "").replace(/```/g, "").trim();
 
-      const answer = await generateAnswer(question, sql, result.rows);
-      const ids = result.rows.map(row => row.id);
+    if (!sql.toLowerCase().includes("select")) {
+      return res.json({
+        answer: "Invalid query generated. Please try again.",
+      });
+    }
+
+    const result = await pool.query(sql);
+    const answer = await generateAnswer(question, sql, result.rows);
+    const ids = result.rows.map((row) => row.id).filter(Boolean);
 
     res.json({
       answer,
       data: result.rows,
       ids,
     });
+
     console.log("FINAL SQL:", sql);
     console.log("Rows Count", result.rows.length);
-    console.log("Rows", result.rows.slice(0,3));
+    console.log("Rows", result.rows.slice(0, 3));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Query failed" });
   }
-
 });
+
 app.listen(5000, () => {
   console.log("Server running on port 5000");
 });

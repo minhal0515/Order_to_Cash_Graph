@@ -18,7 +18,9 @@ export default function Home() {
       <div style={{
         width: "350px",
         borderLeft: "1px solid #222",
-        background: "#0f0f0f"
+        background: "#0f0f0f",
+        position: "relative",
+        zIndex: 1,
       }}>
         <ChatPanel setHighlightIdsAction={setHighlightIds} />
       </div>
