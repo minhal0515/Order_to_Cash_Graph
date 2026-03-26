@@ -22,6 +22,17 @@ const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
   loading: () => <div style={{ padding: "24px" }}>Loading graph...</div>,
 });
 
+const NODE_TYPE_COLORS: Record<string, string> = {
+  customer: "#0f766e",
+  order: "#7c3aed",
+  delivery: "#16a34a",
+  invoice: "#2563eb",
+  product: "#f59e0b",
+  plant: "#8b5cf6",
+  payment: "#dc2626",
+  journal_entry: "#64748b",
+};
+
 type GraphViewProps = {
   highlightIds?: string[];
 };
@@ -91,13 +102,7 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
   const nodeColor = useMemo(
     () =>
       (node: ForceGraphNodeLike) =>
-        node.type === "invoice"
-          ? "#2563eb"
-          : node.type === "delivery"
-            ? "#22c55e"
-            : node.type === "journal_entry"
-              ? "#f59e0b"
-              : "#94a3b8",
+        NODE_TYPE_COLORS[String(node.type ?? "")] ?? "#94a3b8",
     []
   );
 
