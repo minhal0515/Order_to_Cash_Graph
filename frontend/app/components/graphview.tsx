@@ -184,7 +184,7 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
             zIndex: 3,
             border: "1px solid #d1d5db",
             borderRadius: "999px",
-            background: "rgba(255,255,255,0.95)",
+            background: "rgba(55, 19, 198, 0.95)",
             padding: "10px 14px",
             cursor: "pointer",
           }}
