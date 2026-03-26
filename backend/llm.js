@@ -262,6 +262,8 @@ Rules:
 - Do not include markdown
 - Do not include explanations
 - When filtering by ID values, always treat them as text and wrap in single quotes
+- If a numeric ID is given and matches reference_document, use journal_entries.reference_document
+- Do not assume all IDs are invoice IDs
 
 Examples:
 
@@ -349,7 +351,8 @@ Rules:
 - Use only the provided data
 - Mention the row count when useful
 - Keep the answer under 80 words
-- If empty, say no results were found
+-If rows > 0, ALWAYS return the result clearly
+Never say "no results" if rows > 0
 `;
 
   const response = await groq.chat.completions.create({
