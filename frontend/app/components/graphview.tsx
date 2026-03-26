@@ -34,6 +34,7 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
   const [error, setError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const graphRef = useRef<ForceGraphMethods | undefined>(undefined);
+  const hasAutoFitRef = useRef(false);
   const graphSize = useElementSize(containerRef.current);
   const deferredHighlightIds = useDeferredValue(highlightIds);
 
@@ -103,6 +104,17 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
   }, [deferredHighlightIds]);
 
   const stableGraphData = useMemo(() => data, [data]);
+  const nodeColor = useMemo(
+    () => (node: { type?: string }) =>
+      node.type === "invoice"
+        ? "#2563eb"
+        : node.type === "delivery"
+        ? "#22c55e"
+        : node.type === "journal_entry"
+        ? "#f59e0b"
+        : "#94a3b8",
+    []
+  );
 
   useEffect(() => {
     if (!highlightSet.size || !graphRef.current) {
@@ -168,7 +180,7 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
         ref={graphRef}
         graphData={stableGraphData}
         nodeLabel="label"
-        nodeAutoColorBy="type"
+        nodeColor={nodeColor}
         linkColor={() => "rgba(0,0,0,0.15)"}
         linkWidth={1}
         linkDirectionalArrowLength={3}
@@ -186,44 +198,21 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
         nodeCanvasObject={(node, ctx, globalScale) => {
           const nodeId = String(node.id ?? "");
           if (!highlightSet.has(nodeId) && !highlightSet.has(normalizeGraphId(nodeId))) {
-            const fillStyle =
-              node.type === "invoice"
-                ? "#2563eb"
-                : node.type === "delivery"
-                ? "#22c55e"
-                : node.type === "journal_entry"
-                ? "#f59e0b"
-                : "#94a3b8";
-
-            ctx.beginPath();
-            ctx.arc(node.x ?? 0, node.y ?? 0, 4.5, 0, 2 * Math.PI, false);
-            ctx.fillStyle = fillStyle;
-            ctx.fill();
             return;
           }
 
-          const fillStyle =
-            node.type === "invoice"
-              ? "#2563eb"
-              : node.type === "delivery"
-              ? "#22c55e"
-              : node.type === "journal_entry"
-              ? "#f59e0b"
-              : "#94a3b8";
-
           ctx.beginPath();
           ctx.arc(node.x ?? 0, node.y ?? 0, 8, 0, 2 * Math.PI, false);
-          ctx.fillStyle = fillStyle;
-          ctx.shadowBlur = 10;
+          ctx.shadowBlur = 10 / globalScale;
           ctx.shadowColor = "#ef4444";
-          ctx.fill();
-          ctx.shadowBlur = 0;
           ctx.lineWidth = 2 / globalScale;
           ctx.strokeStyle = "#ef4444";
           ctx.stroke();
+          ctx.shadowBlur = 0;
         }}
         onEngineStop={() => {
-          if (graphRef.current && stableGraphData.nodes.length > 0) {
+          if (graphRef.current && stableGraphData.nodes.length > 0 && !hasAutoFitRef.current) {
+            hasAutoFitRef.current = true;
             graphRef.current.zoomToFit(400, 40);
           }
         }}
@@ -242,7 +231,7 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
             zIndex: 3,
             border: "1px solid #d1d5db",
             borderRadius: "999px",
-            background: "rgba(55, 19, 198, 0.95)",
+            background: "rgba(255,255,255,0.95)",
             padding: "10px 14px",
             cursor: "pointer",
           }}
