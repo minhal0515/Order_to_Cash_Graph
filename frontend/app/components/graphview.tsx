@@ -148,6 +148,15 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
     }
   }, [highlightSet, stableGraphData]);
 
+  useEffect(() => {
+    if (!graphRef.current) {
+      return;
+    }
+
+    graphRef.current.d3Force("charge")?.strength(-45);
+    graphRef.current.d3Force("link")?.distance(45);
+  }, [stableGraphData]);
+
   const loadMore = async () => {
     if (hasLoadedFullGraph) {
       return;
@@ -223,6 +232,7 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
           ctx.stroke();
           ctx.shadowBlur = 0;
         }}
+        
         onEngineStop={() => {
           if (graphRef.current && stableGraphData.nodes.length > 0 && !hasAutoFitRef.current) {
             hasAutoFitRef.current = true;
@@ -244,7 +254,7 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
             zIndex: 3,
             border: "1px solid #d1d5db",
             borderRadius: "999px",
-            background: "rgba(255,255,255,0.95)",
+            background: "rgba(35, 5, 77, 0.95)",
             padding: "10px 14px",
             cursor: "pointer",
           }}

@@ -1,12 +1,12 @@
 const GRAPH_LIMITS = {
   initial: {
-    customers: 50,
-    orders: 100,
-    deliveries: 100,
-    invoices: 100,
-    journalEntries: 100,
-    products: 50,
-    payments: 100,
+    customers: 100,
+    orders: 200,
+    deliveries: 200,
+    invoices: 200,
+    journalEntries: 200,
+    products: 100,
+    payments: 200,
   },
   full: {
     customers: 100,
