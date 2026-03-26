@@ -33,12 +33,12 @@ function createGraphBuilder(pool) {
     }
   }
 
-  function addNode(nodes, nodeSet, id, label, type) {
+  function addNode(nodes, nodeSet, id, label, type, extra = {}) {
     if (!id || nodeSet.has(id)) {
       return;
     }
 
-    nodes.push({ id, label, type });
+    nodes.push({ id, label, type, ...extra });
     nodeSet.add(id);
   }
 
@@ -165,34 +165,52 @@ function createGraphBuilder(pool) {
       ]);
 
       customers.forEach((customer) => {
-        addNode(nodes, nodeSet, `customer_${customer.id}`, customer.name || `Customer ${customer.id}`, "customer");
+        addNode(
+          nodes,
+          nodeSet,
+          `customer_${customer.id}`,
+          customer.name || `Customer ${customer.id}`,
+          "customer",
+          { customer_id: customer.id }
+        );
       });
 
       orders.forEach((order) => {
         const orderId = `order_${order.id}`;
-        addNode(nodes, nodeSet, orderId, `Order ${order.id}`, "order");
+        addNode(nodes, nodeSet, orderId, `Order ${order.id}`, "order", { order_id: order.id });
         addLink(links, linkSet, nodeSet, `customer_${order.customer_id}`, orderId, "places");
       });
 
       deliveries.forEach((delivery) => {
         const deliveryId = `delivery_${delivery.id}`;
-        addNode(nodes, nodeSet, deliveryId, `Delivery ${delivery.id}`, "delivery");
+        addNode(nodes, nodeSet, deliveryId, `Delivery ${delivery.id}`, "delivery", {
+          delivery_id: delivery.id,
+          order_id: delivery.order_id,
+        });
         addLink(links, linkSet, nodeSet, `order_${delivery.order_id}`, deliveryId, "fulfilled_by");
       });
 
       invoices.forEach((invoice) => {
         const invoiceId = `invoice_${invoice.id}`;
-        addNode(nodes, nodeSet, invoiceId, `Invoice ${invoice.id}`, "invoice");
+        addNode(nodes, nodeSet, invoiceId, `Invoice ${invoice.id}`, "invoice", {
+          invoice_id: invoice.id,
+          customer_id: invoice.customer_id,
+          delivery_id: invoice.delivery_id,
+        });
         addLink(links, linkSet, nodeSet, invoiceId, `delivery_${invoice.delivery_id}`, "references_delivery");
         addLink(links, linkSet, nodeSet, `customer_${invoice.customer_id}`, invoiceId, "billed_to");
       });
 
       products.forEach((product) => {
-        addNode(nodes, nodeSet, `product_${product.id}`, product.label || `Product ${product.id}`, "product");
+        addNode(nodes, nodeSet, `product_${product.id}`, product.label || `Product ${product.id}`, "product", {
+          product_id: product.id,
+        });
       });
 
       plants.forEach((plant) => {
-        addNode(nodes, nodeSet, `plant_${plant.id}`, plant.name || `Plant ${plant.id}`, "plant");
+        addNode(nodes, nodeSet, `plant_${plant.id}`, plant.name || `Plant ${plant.id}`, "plant", {
+          plant_id: plant.id,
+        });
       });
 
       productPlants.forEach((productPlant) => {
@@ -208,13 +226,19 @@ function createGraphBuilder(pool) {
 
       payments.forEach((payment) => {
         const paymentId = `payment_${payment.company_code}_${payment.fiscal_year}_${payment.accounting_document}_${payment.accounting_document_item}`;
-        addNode(nodes, nodeSet, paymentId, `Payment ${payment.accounting_document}`, "payment");
+        addNode(nodes, nodeSet, paymentId, `Payment ${payment.accounting_document}`, "payment", {
+          accounting_document: payment.accounting_document,
+          invoice_id: payment.invoice_id,
+        });
         addLink(links, linkSet, nodeSet, `invoice_${payment.invoice_id}`, paymentId, "settled_by");
       });
 
       journalEntries.forEach((entry) => {
         const journalId = `journal_entry_${entry.company_code}_${entry.fiscal_year}_${entry.accounting_document}_${entry.accounting_document_item}`;
-        addNode(nodes, nodeSet, journalId, `Journal ${entry.accounting_document}`, "journal_entry");
+        addNode(nodes, nodeSet, journalId, `Journal ${entry.accounting_document}`, "journal_entry", {
+          accounting_document: entry.accounting_document,
+          reference_document: entry.reference_document,
+        });
         addLink(links, linkSet, nodeSet, `invoice_${entry.reference_document}`, journalId, "posted_to");
       });
 

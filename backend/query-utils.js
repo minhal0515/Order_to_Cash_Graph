@@ -66,6 +66,31 @@ function compactRows(rows, maxColumns = 8) {
   });
 }
 
+function extractHighlightTokens(rows) {
+  const tokens = [];
+  const seen = new Set();
+  const highlightKeyPattern =
+    /(^id$|_id$|^accounting_document$|^reference_document$|^journal_entry$|^payment$|^invoice$|^order$|^delivery$|^customer$|^product$|^plant$|^billing_document$)/i;
+
+  rows.forEach((row) => {
+    Object.entries(row).forEach(([key, value]) => {
+      if (!highlightKeyPattern.test(key) || value == null) {
+        return;
+      }
+
+      const token = String(value).trim();
+      if (!token || seen.has(token)) {
+        return;
+      }
+
+      seen.add(token);
+      tokens.push(token);
+    });
+  });
+
+  return tokens;
+}
+
 function createMemoryCache(limit = MAX_CACHE_ENTRIES) {
   const cache = new Map();
 
@@ -92,5 +117,6 @@ module.exports = {
   DEFAULT_QUERY_LIMIT,
   compactRows,
   createMemoryCache,
+  extractHighlightTokens,
   sanitizeGeneratedSQL,
 };

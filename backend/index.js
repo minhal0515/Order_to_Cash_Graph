@@ -8,6 +8,7 @@ const { createGraphBuilder } = require("./graph-builder");
 const {
   compactRows,
   createMemoryCache,
+  extractHighlightTokens,
   sanitizeGeneratedSQL,
 } = require("./query-utils");
 
@@ -87,10 +88,7 @@ app.post("/query", async (req, res) => {
     const result = await pool.query(sql);
     const compactData = compactRows(result.rows);
     const answer = await generateAnswer(question, sql, compactData.slice(0, 10));
-    const ids = compactData
-      .map((row) => row.id)
-      .filter(Boolean)
-      .map((id) => String(id));
+    const ids = extractHighlightTokens(result.rows);
 
     const payload = {
       answer,

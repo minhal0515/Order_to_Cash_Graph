@@ -37,6 +37,36 @@ type GraphViewProps = {
   highlightIds?: string[];
 };
 
+function nodeMatchesHighlight(node: GraphNode, highlightSet: Set<string>) {
+  const tokens = new Set<string>();
+
+  const addToken = (value: unknown) => {
+    if (value == null) {
+      return;
+    }
+
+    const token = String(value).trim();
+    if (!token) {
+      return;
+    }
+
+    tokens.add(token);
+    tokens.add(normalizeGraphId(token));
+  };
+
+  addToken(node.id);
+
+  Object.entries(node).forEach(([key, value]) => {
+    if (!/(^id$|_id$|^accounting_document$|^reference_document$)/i.test(key)) {
+      return;
+    }
+
+    addToken(value);
+  });
+
+  return [...tokens].some((token) => highlightSet.has(token));
+}
+
 export default function GraphView({ highlightIds = [] }: GraphViewProps) {
   const [data, setData] = useState<GraphPayload>({ nodes: [], links: [] });
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
@@ -111,9 +141,7 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
       return;
     }
 
-    const highlightedNode = stableGraphData.nodes.find((node) => {
-      return highlightSet.has(node.id) || highlightSet.has(normalizeGraphId(node.id));
-    });
+    const highlightedNode = stableGraphData.nodes.find((node) => nodeMatchesHighlight(node, highlightSet));
 
     if (highlightedNode) {
       graphRef.current.centerAt(
@@ -196,14 +224,12 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
         d3AlphaDecay={0.05}
         autoPauseRedraw
         nodeCanvasObjectMode={(node) => {
-          const nodeId = String(node.id ?? "");
-          return highlightSet.has(nodeId) || highlightSet.has(normalizeGraphId(nodeId))
+          return nodeMatchesHighlight(node as GraphNode, highlightSet)
             ? "after"
             : undefined;
         }}
         nodeCanvasObject={(node, ctx, globalScale) => {
-          const nodeId = String(node.id ?? "");
-          if (!highlightSet.has(nodeId) && !highlightSet.has(normalizeGraphId(nodeId))) {
+          if (!nodeMatchesHighlight(node as GraphNode, highlightSet)) {
             return;
           }
 
