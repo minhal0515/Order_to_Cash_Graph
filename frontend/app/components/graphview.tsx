@@ -125,8 +125,8 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
       return;
     }
 
-    graphRef.current.d3Force("charge")?.strength(-38);
-    graphRef.current.d3Force("link")?.distance(38);
+    graphRef.current.d3Force("charge")?.strength(-28);
+    graphRef.current.d3Force("link")?.distance(32);
   }, [stableGraphData]);
 
   return (
@@ -145,14 +145,14 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
       <div
         style={{
           position: "absolute",
-          top: 16,
-          left: 16,
+          top: 0,
+          left: 0,
+          right: 0,
           zIndex: 3,
-          padding: "10px 14px",
-          borderRadius: "12px",
-          background: "rgba(255,255,255,0.92)",
-          border: "1px solid rgba(148,163,184,0.25)",
-          boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+          padding: "18px 24px",
+          background: "rgba(255,255,255,0.96)",
+          borderBottom: "1px solid rgba(148,163,184,0.2)",
+          boxShadow: "0 6px 18px rgba(15, 23, 42, 0.06)",
         }}
       >
         <h2
@@ -183,7 +183,6 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
         nodeColor={nodeColor}
         linkColor={() => "rgba(0,0,0,0.15)"}
         linkWidth={1}
-        linkDirectionalArrowLength={3}
         nodeRelSize={5}
         cooldownTicks={100}
         d3VelocityDecay={0.3}
@@ -219,7 +218,7 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
         }}
         onNodeClick={(node) => setSelectedNode(node as GraphNode)}
         width={graphSize.width || 800}
-        height={graphSize.height || 600}
+        height={Math.max((graphSize.height || 600) - 68, 200)}
         backgroundColor="white"
       />
       {selectedNode && (
