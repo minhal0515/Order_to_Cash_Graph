@@ -104,15 +104,28 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
   }, [deferredHighlightIds]);
 
   const stableGraphData = useMemo(() => data, [data]);
+  type ForceGraphNodeLike = {
+    id?: string | number;
+    x?: number;
+    y?: number;
+    vx?: number;
+    vy?: number;
+    fx?: number;
+    fy?: number;
+    // Library node objects can carry arbitrary extra fields; we only use `type` for coloring.
+    type?: string;
+    [key: string]: unknown;
+  };
   const nodeColor = useMemo(
-    () => (node: { type?: string }) =>
-      node.type === "invoice"
-        ? "#2563eb"
-        : node.type === "delivery"
-        ? "#22c55e"
-        : node.type === "journal_entry"
-        ? "#f59e0b"
-        : "#94a3b8",
+    () =>
+      (node: ForceGraphNodeLike) =>
+        node.type === "invoice"
+          ? "#2563eb"
+          : node.type === "delivery"
+            ? "#22c55e"
+            : node.type === "journal_entry"
+              ? "#f59e0b"
+              : "#94a3b8",
     []
   );
 
