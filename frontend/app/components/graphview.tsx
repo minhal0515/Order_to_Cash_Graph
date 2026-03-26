@@ -11,7 +11,6 @@ import {
 import type { ForceGraphMethods } from "react-force-graph-2d";
 import {
   getGraph,
-  mergeGraphPayload,
   normalizeGraphId,
   type GraphPayload,
   type GraphNode,
@@ -37,6 +36,33 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
   const graphRef = useRef<ForceGraphMethods | undefined>(undefined);
   const graphSize = useElementSize(containerRef.current);
   const deferredHighlightIds = useDeferredValue(highlightIds);
+
+  const mergeGraphData = (previous: GraphPayload, next: GraphPayload): GraphPayload => {
+    const nodeMap = new Map(previous.nodes.map((node) => [node.id, node]));
+    next.nodes.forEach((node) => {
+      nodeMap.set(node.id, node);
+    });
+
+    const linkMap = new Map(
+      previous.links.map((link) => {
+        const source = typeof link.source === "string" ? link.source : String(link.source);
+        const target = typeof link.target === "string" ? link.target : String(link.target);
+        return [`${source}->${target}`, link] as const;
+      })
+    );
+
+    next.links.forEach((link) => {
+      const source = typeof link.source === "string" ? link.source : String(link.source);
+      const target = typeof link.target === "string" ? link.target : String(link.target);
+      linkMap.set(`${source}->${target}`, link);
+    });
+
+    return {
+      nodes: Array.from(nodeMap.values()),
+      links: Array.from(linkMap.values()),
+      meta: next.meta ?? previous.meta,
+    };
+  };
 
   useEffect(() => {
     let alive = true;
@@ -105,7 +131,7 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
     try {
       setIsLoading(true);
       const fullGraph = await getGraph("full");
-      setData((current) => mergeGraphPayload(current, fullGraph));
+      setData((previous) => mergeGraphData(previous, fullGraph));
       setHasLoadedFullGraph(true);
     } catch (loadError) {
       console.error(loadError);
@@ -124,7 +150,9 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
         minHeight: 0,
         position: "relative",
         zIndex: 0,
+        background: "white",
       }}
+      onClick={() => setSelectedNode(null)}
     >
       {isLoading && stableGraphData.nodes.length === 0 && (
         <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", zIndex: 2 }}>
@@ -141,10 +169,13 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
         graphData={stableGraphData}
         nodeLabel="label"
         nodeAutoColorBy="type"
+        linkColor={() => "rgba(0,0,0,0.15)"}
+        linkWidth={1}
         linkDirectionalArrowLength={3}
-        nodeRelSize={6}
+        nodeRelSize={5}
         cooldownTicks={100}
         d3VelocityDecay={0.3}
+        d3AlphaDecay={0.05}
         autoPauseRedraw
         nodeCanvasObjectMode={(node) => {
           const nodeId = String(node.id ?? "");
@@ -155,11 +186,38 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
         nodeCanvasObject={(node, ctx, globalScale) => {
           const nodeId = String(node.id ?? "");
           if (!highlightSet.has(nodeId) && !highlightSet.has(normalizeGraphId(nodeId))) {
+            const fillStyle =
+              node.type === "invoice"
+                ? "#2563eb"
+                : node.type === "delivery"
+                ? "#22c55e"
+                : node.type === "journal_entry"
+                ? "#f59e0b"
+                : "#94a3b8";
+
+            ctx.beginPath();
+            ctx.arc(node.x ?? 0, node.y ?? 0, 4.5, 0, 2 * Math.PI, false);
+            ctx.fillStyle = fillStyle;
+            ctx.fill();
             return;
           }
 
+          const fillStyle =
+            node.type === "invoice"
+              ? "#2563eb"
+              : node.type === "delivery"
+              ? "#22c55e"
+              : node.type === "journal_entry"
+              ? "#f59e0b"
+              : "#94a3b8";
+
           ctx.beginPath();
           ctx.arc(node.x ?? 0, node.y ?? 0, 8, 0, 2 * Math.PI, false);
+          ctx.fillStyle = fillStyle;
+          ctx.shadowBlur = 10;
+          ctx.shadowColor = "#ef4444";
+          ctx.fill();
+          ctx.shadowBlur = 0;
           ctx.lineWidth = 2 / globalScale;
           ctx.strokeStyle = "#ef4444";
           ctx.stroke();
@@ -194,20 +252,37 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
       )}
       {selectedNode && (
         <div
+          onClick={(event) => event.stopPropagation()}
           style={{
             position: "absolute",
             right: 20,
             top: 20,
-            background: "#111",
-            color: "white",
-            padding: "12px",
-            borderRadius: "8px",
+            background: "rgba(255,255,255,0.98)",
+            color: "#0f172a",
+            padding: "16px",
+            borderRadius: "14px",
             width: "250px",
-            border: "1px solid #333",
+            border: "1px solid rgba(148,163,184,0.35)",
+            boxShadow: "0 20px 45px rgba(15, 23, 42, 0.18)",
             zIndex: 10,
           }}
         >
-          <h4>Node Details</h4>
+          <button
+            onClick={() => setSelectedNode(null)}
+            style={{
+              position: "absolute",
+              top: 10,
+              right: 10,
+              border: "none",
+              background: "transparent",
+              color: "#475569",
+              cursor: "pointer",
+              fontSize: "16px",
+            }}
+          >
+            ✕
+          </button>
+          <h4 style={{ margin: "0 0 12px" }}>Node Details</h4>
           {Object.entries(selectedNode).map(([key, value]) => (
             <div key={key} style={{ fontSize: "12px", marginBottom: "4px" }}>
               <strong>{key}:</strong> {String(value)}
