@@ -261,8 +261,11 @@ Rules:
 - Output pure SQL only
 - Do not include markdown
 - Do not include explanations
+- When filtering by ID values, always treat them as text and wrap in single quotes
 
 Examples:
+
+---
 
 User: Find invoices without deliveries
 SQL:
@@ -271,17 +274,53 @@ FROM invoices i
 LEFT JOIN deliveries d ON i.delivery_id = d.id
 WHERE d.id IS NULL;
 
+---
+
 User: Show payments linked to invoices
 SQL:
 SELECT p.accounting_document, p.invoice_id
 FROM payments p
 JOIN invoices i ON p.invoice_id = i.id;
 
+---
+
 User: Show plants for a product
 SQL:
 SELECT pp.product_id, pp.plant_id
 FROM product_plants pp
 WHERE pp.product_id = '3001456';
+
+---
+
+User: Which products are associated with the highest number of billing documents?
+SQL:
+SELECT soi.product_id, COUNT(DISTINCT i.id) AS invoice_count
+FROM sales_order_items soi
+JOIN sales_orders so ON soi.order_id = so.id
+JOIN deliveries d ON d.order_id = so.id
+JOIN invoices i ON i.delivery_id = d.id
+GROUP BY soi.product_id
+ORDER BY invoice_count DESC
+LIMIT 5;
+
+---
+
+User: Trace full flow of a billing document 90504242
+SQL:
+SELECT 
+  so.id AS order_id,
+  d.id AS delivery_id,
+  i.id AS invoice_id,
+  je.accounting_document AS journal_entry
+FROM invoices i
+LEFT JOIN deliveries d ON i.delivery_id = d.id
+LEFT JOIN sales_orders so ON d.order_id = so.id
+LEFT JOIN journal_entries je ON je.reference_document = i.id
+WHERE i.id = '90504242';
+
+REASONING HINT
+- Use JOIN chains when tracing flows across entities
+- Use GROUP BY and COUNT when question involves "highest", "most", "count"
 
 User question:
 ${question}
