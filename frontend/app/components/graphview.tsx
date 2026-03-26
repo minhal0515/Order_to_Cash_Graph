@@ -127,7 +127,7 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
 
     // Keep disconnected groups visually closer without changing the graph's colors or node sizing.
     graphRef.current.d3Force("charge")?.strength(-10).distanceMax(110);
-    graphRef.current.d3Force("link")?.distance(14);
+    graphRef.current.d3Force("link")?.distance(18);
     graphRef.current.d3Force("center")?.strength(0.28);
   }, [stableGraphData]);
 
