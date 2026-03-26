@@ -125,10 +125,10 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
       return;
     }
 
-    // Keep disconnected groups visually closer without changing the graph's colors or node sizing.
-    graphRef.current.d3Force("charge")?.strength(-10).distanceMax(110);
-    graphRef.current.d3Force("link")?.distance(18);
-    graphRef.current.d3Force("center")?.strength(0.28);
+    // Keep the layout compact, but allow a bit more separation between groups.
+    graphRef.current.d3Force("charge")?.strength(-14).distanceMax(145);
+    graphRef.current.d3Force("link")?.distance(19);
+    graphRef.current.d3Force("center")?.strength(0.2);
   }, [stableGraphData]);
 
   return (
@@ -220,7 +220,7 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
         }}
         onNodeClick={(node) => setSelectedNode(node as GraphNode)}
         width={graphSize.width || 800}
-        height={Math.max((graphSize.height || 600) - 68, 200)}
+        height={Math.max(graphSize.height || 600, 200)}
         backgroundColor="white"
       />
       {selectedNode && (
