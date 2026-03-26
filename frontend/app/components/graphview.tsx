@@ -10,6 +10,7 @@ import {
 } from "react";
 import type { ForceGraphMethods } from "react-force-graph-2d";
 import {
+  cloneGraphPayload,
   getExpandedGraph,
   getGraph,
   mergeGraphPayload,
@@ -78,6 +79,7 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
   const [isExpandingNode, setIsExpandingNode] = useState(false);
   const [expandedNodeIds, setExpandedNodeIds] = useState<string[]>([]);
   const graphRef = useRef<ForceGraphMethods | undefined>(undefined);
+  const initialGraphRef = useRef<GraphPayload | null>(null);
   const hasAutoFitRef = useRef(false);
   const graphSize = useElementSize(containerElement);
   const deferredHighlightIds = useDeferredValue(highlightIds);
@@ -91,7 +93,8 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
           return;
         }
 
-        setData(json);
+        initialGraphRef.current = cloneGraphPayload(json);
+        setData(cloneGraphPayload(json));
         setError(json.meta?.error ?? null);
       })
       .catch((err) => {
@@ -188,6 +191,17 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
     } finally {
       setIsExpandingNode(false);
     }
+  };
+
+  const resetGraph = () => {
+    if (!initialGraphRef.current) {
+      return;
+    }
+
+    hasAutoFitRef.current = false;
+    setData(cloneGraphPayload(initialGraphRef.current));
+    setExpandedNodeIds([]);
+    setIsExpandingNode(false);
   };
 
   return (
@@ -340,6 +354,25 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
                 ? "Expanded"
                 : "Expand Node"}
           </button>
+          {expandedNodeIds.length > 0 && (
+            <button
+              onClick={resetGraph}
+              style={{
+                marginBottom: "12px",
+                marginLeft: "8px",
+                padding: "8px 12px",
+                border: "1px solid #cbd5e1",
+                borderRadius: "8px",
+                background: "white",
+                color: "#0f172a",
+                cursor: "pointer",
+                fontSize: "12px",
+                fontWeight: 600,
+              }}
+            >
+              Reset Graph
+            </button>
+          )}
           {Object.entries(selectedNode).map(([key, value]) => (
             <div key={key} style={{ fontSize: "12px", marginBottom: "4px" }}>
               <strong>{key}:</strong> {String(value)}

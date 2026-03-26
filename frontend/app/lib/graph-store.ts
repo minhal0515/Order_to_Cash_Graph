@@ -77,6 +77,19 @@ export function getExpandedGraph(nodeId: string) {
   return fetchJson<GraphPayload>(`/graph/expand?id=${encodeURIComponent(nodeId)}`);
 }
 
+export function cloneGraphPayload(graph: GraphPayload): GraphPayload {
+  return {
+    nodes: graph.nodes.map((node) => ({ ...node })),
+    links: graph.links.map((link) => ({ ...link })),
+    meta: graph.meta
+      ? {
+          ...graph.meta,
+          counts: graph.meta.counts ? { ...graph.meta.counts } : undefined,
+        }
+      : undefined,
+  };
+}
+
 export function mergeGraphPayload(base: GraphPayload, next: GraphPayload): GraphPayload {
   return {
     nodes: uniqueById([...base.nodes, ...next.nodes]),
