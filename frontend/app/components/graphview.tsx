@@ -125,8 +125,10 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
       return;
     }
 
-    graphRef.current.d3Force("charge")?.strength(-28);
-    graphRef.current.d3Force("link")?.distance(32);
+    // Keep disconnected groups visually closer without changing the graph's colors or node sizing.
+    graphRef.current.d3Force("charge")?.strength(-10).distanceMax(110);
+    graphRef.current.d3Force("link")?.distance(14);
+    graphRef.current.d3Force("center")?.strength(0.28);
   }, [stableGraphData]);
 
   return (
@@ -213,7 +215,7 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
         onEngineStop={() => {
           if (graphRef.current && stableGraphData.nodes.length > 0 && !hasAutoFitRef.current) {
             hasAutoFitRef.current = true;
-            graphRef.current.zoomToFit(400, 40);
+            graphRef.current.zoomToFit(400, 0);
           }
         }}
         onNodeClick={(node) => setSelectedNode(node as GraphNode)}
