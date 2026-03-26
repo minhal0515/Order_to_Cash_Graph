@@ -13,7 +13,7 @@ const {
 } = require("./query-utils");
 
 const app = express();
-const { buildGraph } = createGraphBuilder(pool);
+const { buildGraph, buildExpandedGraph } = createGraphBuilder(pool);
 const queryCache = createMemoryCache();
 
 app.use(
@@ -32,6 +32,29 @@ app.get("/graph", async (req, res) => {
       nodes: [],
       links: [],
       meta: { error: "Graph error" },
+    });
+  }
+});
+
+app.get("/graph/expand", async (req, res) => {
+  try {
+    const id = String(req.query.id || "").trim();
+    if (!id) {
+      return res.status(400).json({
+        nodes: [],
+        links: [],
+        meta: { error: "Missing node id" },
+      });
+    }
+
+    const graph = await buildExpandedGraph(id);
+    res.json(graph);
+  } catch (err) {
+    console.error("Graph expand error:", err);
+    res.status(500).json({
+      nodes: [],
+      links: [],
+      meta: { error: "Graph expand error" },
     });
   }
 });

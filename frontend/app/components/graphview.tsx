@@ -10,7 +10,9 @@ import {
 } from "react";
 import type { ForceGraphMethods } from "react-force-graph-2d";
 import {
+  getExpandedGraph,
   getGraph,
+  mergeGraphPayload,
   normalizeGraphId,
   type GraphPayload,
   type GraphNode,
@@ -73,6 +75,8 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [containerElement, setContainerElement] = useState<HTMLDivElement | null>(null);
+  const [isExpandingNode, setIsExpandingNode] = useState(false);
+  const [expandedNodeIds, setExpandedNodeIds] = useState<string[]>([]);
   const graphRef = useRef<ForceGraphMethods | undefined>(undefined);
   const hasAutoFitRef = useRef(false);
   const graphSize = useElementSize(containerElement);
@@ -163,6 +167,28 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
     graphRef.current.d3Force("link")?.distance(19);
     graphRef.current.d3Force("center")?.strength(0.2);
   }, [stableGraphData]);
+
+  const expandSelectedNode = async () => {
+    if (!selectedNode || isExpandingNode) {
+      return;
+    }
+
+    const selectedNodeId = String(selectedNode.id);
+    if (expandedNodeIds.includes(selectedNodeId)) {
+      return;
+    }
+
+    try {
+      setIsExpandingNode(true);
+      const nextGraph = await getExpandedGraph(selectedNodeId);
+      setData((prev) => mergeGraphPayload(prev, nextGraph));
+      setExpandedNodeIds((prev) => [...prev, selectedNodeId]);
+    } catch (expandError) {
+      console.error(expandError);
+    } finally {
+      setIsExpandingNode(false);
+    }
+  };
 
   return (
     <div
@@ -287,6 +313,33 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
             ✕
           </button>
           <h4 style={{ margin: "0 0 12px" }}>Node Details</h4>
+          <button
+            onClick={expandSelectedNode}
+            disabled={isExpandingNode || expandedNodeIds.includes(String(selectedNode.id))}
+            style={{
+              marginBottom: "12px",
+              padding: "8px 12px",
+              border: "none",
+              borderRadius: "8px",
+              background:
+                isExpandingNode || expandedNodeIds.includes(String(selectedNode.id))
+                  ? "#94a3b8"
+                  : "#2563eb",
+              color: "white",
+              cursor:
+                isExpandingNode || expandedNodeIds.includes(String(selectedNode.id))
+                  ? "not-allowed"
+                  : "pointer",
+              fontSize: "12px",
+              fontWeight: 600,
+            }}
+          >
+            {isExpandingNode
+              ? "Expanding..."
+              : expandedNodeIds.includes(String(selectedNode.id))
+                ? "Expanded"
+                : "Expand Node"}
+          </button>
           {Object.entries(selectedNode).map(([key, value]) => (
             <div key={key} style={{ fontSize: "12px", marginBottom: "4px" }}>
               <strong>{key}:</strong> {String(value)}

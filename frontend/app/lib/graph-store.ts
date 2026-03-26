@@ -73,6 +73,10 @@ export function getGraph(view: "initial" | "full" = "initial") {
   return graphRequestCache.get(view)!;
 }
 
+export function getExpandedGraph(nodeId: string) {
+  return fetchJson<GraphPayload>(`/graph/expand?id=${encodeURIComponent(nodeId)}`);
+}
+
 export function mergeGraphPayload(base: GraphPayload, next: GraphPayload): GraphPayload {
   return {
     nodes: uniqueById([...base.nodes, ...next.nodes]),
