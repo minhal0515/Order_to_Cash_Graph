@@ -30,40 +30,12 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
   const [data, setData] = useState<GraphPayload>({ nodes: [], links: [] });
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [hasLoadedFullGraph, setHasLoadedFullGraph] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerElement, setContainerElement] = useState<HTMLDivElement | null>(null);
   const graphRef = useRef<ForceGraphMethods | undefined>(undefined);
   const hasAutoFitRef = useRef(false);
-  const graphSize = useElementSize(containerRef.current);
+  const graphSize = useElementSize(containerElement);
   const deferredHighlightIds = useDeferredValue(highlightIds);
-
-  const mergeGraphData = (previous: GraphPayload, next: GraphPayload): GraphPayload => {
-    const nodeMap = new Map(previous.nodes.map((node) => [node.id, node]));
-    next.nodes.forEach((node) => {
-      nodeMap.set(node.id, node);
-    });
-
-    const linkMap = new Map(
-      previous.links.map((link) => {
-        const source = typeof link.source === "string" ? link.source : String(link.source);
-        const target = typeof link.target === "string" ? link.target : String(link.target);
-        return [`${source}->${target}`, link] as const;
-      })
-    );
-
-    next.links.forEach((link) => {
-      const source = typeof link.source === "string" ? link.source : String(link.source);
-      const target = typeof link.target === "string" ? link.target : String(link.target);
-      linkMap.set(`${source}->${target}`, link);
-    });
-
-    return {
-      nodes: Array.from(nodeMap.values()),
-      links: Array.from(linkMap.values()),
-      meta: next.meta ?? previous.meta,
-    };
-  };
 
   useEffect(() => {
     let alive = true;
@@ -153,31 +125,13 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
       return;
     }
 
-    graphRef.current.d3Force("charge")?.strength(-45);
-    graphRef.current.d3Force("link")?.distance(45);
+    graphRef.current.d3Force("charge")?.strength(-38);
+    graphRef.current.d3Force("link")?.distance(38);
   }, [stableGraphData]);
-
-  const loadMore = async () => {
-    if (hasLoadedFullGraph) {
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      const fullGraph = await getGraph("full");
-      setData((previous) => mergeGraphData(previous, fullGraph));
-      setHasLoadedFullGraph(true);
-    } catch (loadError) {
-      console.error(loadError);
-      setError("Unable to load the expanded graph.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   return (
     <div
-      ref={containerRef}
+      ref={setContainerElement}
       style={{
         width: "100%",
         height: "100%",
@@ -188,6 +142,30 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
       }}
       onClick={() => setSelectedNode(null)}
     >
+      <div
+        style={{
+          position: "absolute",
+          top: 16,
+          left: 16,
+          zIndex: 3,
+          padding: "10px 14px",
+          borderRadius: "12px",
+          background: "rgba(255,255,255,0.92)",
+          border: "1px solid rgba(148,163,184,0.25)",
+          boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+        }}
+      >
+        <h2
+          style={{
+            margin: 0,
+            fontSize: "24px",
+            fontWeight: 600,
+            color: "#0f172a",
+          }}
+        >
+          Order to Cash
+        </h2>
+      </div>
       {isLoading && stableGraphData.nodes.length === 0 && (
         <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", zIndex: 2 }}>
           Loading graph...
@@ -244,24 +222,6 @@ export default function GraphView({ highlightIds = [] }: GraphViewProps) {
         height={graphSize.height || 600}
         backgroundColor="white"
       />
-      {!hasLoadedFullGraph && stableGraphData.nodes.length > 0 && (
-        <button
-          onClick={loadMore}
-          style={{
-            position: "absolute",
-            left: 16,
-            top: 16,
-            zIndex: 3,
-            border: "1px solid #d1d5db",
-            borderRadius: "999px",
-            background: "rgba(35, 5, 77, 0.95)",
-            padding: "10px 14px",
-            cursor: "pointer",
-          }}
-        >
-          {isLoading ? "Loading..." : "Load More"}
-        </button>
-      )}
       {selectedNode && (
         <div
           onClick={(event) => event.stopPropagation()}
