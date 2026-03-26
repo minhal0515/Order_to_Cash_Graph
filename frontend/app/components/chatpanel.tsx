@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
+import { fetchJson } from "../lib/api";
 
 type Message = {
   role: "user" | "ai";
@@ -12,56 +13,92 @@ type ChatPanelProps = {
   setHighlightIdsAction: Dispatch<SetStateAction<string[]>>;
 };
 
+type QueryResponse = {
+  answer?: string;
+  ids?: Array<string | number>;
+};
+
 export default function ChatPanel({ setHighlightIdsAction }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const debounceRef = useRef<number | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-  const send = async () => {
-    if (!input.trim()) return;
+  const canSend = useMemo(() => input.trim().length > 0 && !isSending, [input, isSending]);
 
-    const userMessage: Message = { role: "user", text: input };
-    setMessages((prev) => [...prev, userMessage]);
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        window.clearTimeout(debounceRef.current);
+      }
 
-    const res = await fetch("https://order-to-cash-graph-u5wv.onrender.com/query", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ question: input }),
-    });
-
-    let data: any = null;
-    try {
-      data = await res.json();
-    } catch {
-      // Backend may return plain text on error; keep UI usable.
-      data = { answer: await res.text().catch(() => "Request failed"), ids: [] };
-    }
-
-    if (data.ids && data.ids.length > 0) {
-      setHighlightIdsAction(data.ids.map((id: string | number) => String(id)));
-    } else {
-      setHighlightIdsAction([]);
-    }
-
-    const aiMessage: Message = {
-      role: "ai",
-      text: data.answer,
+      abortRef.current?.abort();
     };
-    if (!res.ok) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "ai",
-          text: "I generated an invalid query. Please try rephrasing.",
-        },
-      ]);
+  }, []);
+
+  const send = () => {
+    const question = input.trim();
+    if (!question || isSending) {
       return;
     }
-    console.log("API_RESPONSE", data);
-    console.log("IDS_FROM_BACKEDN", data.ids);
-    setMessages((prev) => [...prev, aiMessage]);
-    setInput("");
+
+    if (debounceRef.current) {
+      window.clearTimeout(debounceRef.current);
+    }
+
+    debounceRef.current = window.setTimeout(async () => {
+      const userMessage: Message = { role: "user", text: question };
+      startTransition(() => {
+        setMessages((prev) => [...prev, userMessage]);
+        setInput("");
+      });
+
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      try {
+        setIsSending(true);
+
+        const data = await fetchJson<QueryResponse>("/query", {
+          method: "POST",
+          body: JSON.stringify({ question }),
+          signal: controller.signal,
+        });
+
+        startTransition(() => {
+          setHighlightIdsAction(
+            (data.ids ?? []).map((id) => String(id))
+          );
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "ai",
+              text: data.answer || "No answer returned.",
+            },
+          ]);
+        });
+      } catch (error) {
+        if ((error as Error).name === "AbortError") {
+          return;
+        }
+
+        console.error(error);
+        startTransition(() => {
+          setHighlightIdsAction([]);
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "ai",
+              text: "I could not complete that request. Please try rephrasing it.",
+            },
+          ]);
+        });
+      } finally {
+        setIsSending(false);
+      }
+    }, 250);
   };
 
   return (
@@ -127,6 +164,12 @@ export default function ChatPanel({ setHighlightIdsAction }: ChatPanelProps) {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              send();
+            }
+          }}
           placeholder="Ask anything..."
           style={{
             flex: 1,
@@ -140,15 +183,17 @@ export default function ChatPanel({ setHighlightIdsAction }: ChatPanelProps) {
 
         <button
           onClick={send}
+          disabled={!canSend}
           style={{
             padding: "10px 16px",
-            background: "#2563eb",
+            background: canSend ? "#2563eb" : "#334155",
             border: "none",
             borderRadius: "8px",
             color: "white",
+            cursor: canSend ? "pointer" : "not-allowed",
           }}
         >
-          Send
+          {isSending ? "Thinking..." : "Send"}
         </button>
       </div>
     </div>

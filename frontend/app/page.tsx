@@ -10,7 +10,7 @@ export default function Home() {
     <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
       
       {/* GRAPH */}
-      <div style={{ flex: 3 }}>
+      <div style={{ flex: 3, minWidth: 0, minHeight: 0 }}>
         <GraphView highlightIds={highlightIds} />
       </div>
 

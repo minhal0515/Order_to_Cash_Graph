@@ -5,11 +5,12 @@ const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
+const FAST_MODEL = "llama-3.1-8b-instant";
+
 async function generateSQL(question) {
   const prompt = `
-You are a PostgreSQL expert.
-
-Generate one SELECT query for the user question using only the schema below.
+Generate one PostgreSQL SELECT query for the user question using only the schema below.
+Keep it minimal and fast.
 
 Database schema:
 
@@ -250,6 +251,9 @@ Rules:
 - DO NOT invent relationships
 - Prefer simple SQL
 - Avoid unnecessary filters
+- Never use SELECT *
+- Return only the fields needed to answer the question
+- Default to LIMIT 50 unless the user explicitly asks for more
 - Use explicit JOIN conditions based only on the defined relationships above
 - For missing relationships, use LEFT JOIN and IS NULL
 - If the user asks for invoices, prefer returning i.id
@@ -284,7 +288,8 @@ ${question}
 `;
 
   const response = await groq.chat.completions.create({
-    model: "llama-3.3-70b-versatile",
+    model: FAST_MODEL,
+    temperature: 0,
     messages: [{ role: "user", content: prompt }],
   });
 
@@ -293,35 +298,24 @@ ${question}
 
 async function generateAnswer(question, sql, data) {
   const prompt = `
-You are a precise data analyst.
+Answer the user question using only the query summary below.
+Be concise and factual.
 
-User question:
-${question}
-
-SQL executed:
-${sql}
-
-Number of rows:
-${data.length}
-
-Query result (JSON):
-${JSON.stringify(data)}
+Question: ${question}
+SQL: ${sql}
+Rows: ${data.length}
+Sample: ${JSON.stringify(data)}
 
 Rules:
-- ONLY use the data provided
-- DO NOT assume anything
-- If results exist, explain what they show
-- Always use the provided count
-- Be concise
-- If empty, clearly say no results found
-- Keep the answer short and factual
-- If interpretation is uncertain, briefly state the assumption
-
-Now answer:
+- Use only the provided data
+- Mention the row count when useful
+- Keep the answer under 80 words
+- If empty, say no results were found
 `;
 
   const response = await groq.chat.completions.create({
-    model: "llama-3.3-70b-versatile",
+    model: FAST_MODEL,
+    temperature: 0.1,
     messages: [{ role: "user", content: prompt }],
   });
 
