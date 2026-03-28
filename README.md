@@ -18,6 +18,38 @@ Live deployment: [https://order-to-cash-graph.vercel.app/](https://order-to-cash
 - Frontend: Next.js 16, React 19, `react-force-graph-2d`
 - Backend: Express, PostgreSQL, Groq API
 
+## Architecture Decisions
+
+- The project is split into a `frontend` and `backend` so graph rendering, chat interaction, SQL generation, and database access stay clearly separated.
+- The frontend is responsible for visualization and interaction only: rendering the graph, opening node details, expanding nodes, and sending chat questions.
+- The backend is responsible for graph construction and query execution: loading entities from the dataset, building node-edge relationships, generating SQL from natural language, executing the SQL, and returning grounded answers.
+- Graph data is exposed through dedicated API routes rather than embedding database access in the frontend. This keeps credentials and query logic on the server side.
+- The graph model favors business entities and business-process links over raw table browsing, so the UI reflects Order-to-Cash flows rather than just table joins.
+
+## Database Choice
+
+- PostgreSQL is used as the system of record for the Order-to-Cash dataset.
+- This fits the project well because the data is relational and the core questions depend on joins across entities such as customers, sales orders, deliveries, invoices, payments, products, plants, and journal entries.
+- Using PostgreSQL also makes natural-language-to-SQL practical, since the LLM can target a well-defined schema and the backend can validate and execute standard `SELECT` queries safely.
+- The backend connects through `DATABASE_URL`, and all user-visible answers are grounded in executed database results.
+
+## LLM Prompting Strategy
+
+- The backend uses the LLM for two narrow tasks: generating SQL from a user question and summarizing the returned query results.
+- The SQL-generation prompt includes the allowed schema, known relationships, hard rules, and concrete examples so the model stays anchored to the actual dataset.
+- The answer-generation prompt does not let the model invent results. It receives the question, the generated SQL, row count, and a sample of the actual returned rows, then produces a short factual answer.
+- This split keeps the model focused: one prompt turns language into a query, and a second prompt turns query output into a readable response.
+
+## Guardrails
+
+- Only dataset-related questions are accepted by the backend.
+- Generated SQL must be a `SELECT` or `WITH` query.
+- `SELECT *` is rejected.
+- The SQL prompt explicitly forbids invented tables, columns, and relationships.
+- A default `LIMIT` is applied when the model does not provide one.
+- Answers are generated from returned query data, not from model memory alone.
+- Highlighted graph nodes are derived from query result identifiers so the UI stays tied to the underlying data.
+
 ## Project Structure
 
 - `frontend/`: Next.js app with the graph view and chat panel
