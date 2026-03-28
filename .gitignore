@@ -15,3 +15,23 @@ frontend/.next/
 .DS_Store
 
 sap-o2c-data/
+
+# Logs
+*.log
+
+# Debug files
+*.out
+*.err
+
+
+# OS files
+.DS_Store
+
+# Node
+node_modules
+.env
+
+# AI / logs (private)
+AI_USAGE.md
+CHAT_LOG.md
+chat-log-clean.md
